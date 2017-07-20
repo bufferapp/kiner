@@ -35,10 +35,10 @@ class KinesisProducer:
 
         Parameters
         ----------
-        data : anything
-            Data to send
-        partition_key:
-            Description of parameter `y` (with type not specified)
+        data : str
+            Data to send.
+        partition_key: str
+            Hash that determines which shard a given data record belongs to.
 
         """
         # Byte encode the data
@@ -62,6 +62,7 @@ class KinesisProducer:
         self.records.append(record)
 
     def flush(self):
+        """Put all the current records in the queue into the stream."""
         records = self.records
 
         # Return if there are no records
