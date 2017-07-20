@@ -1,9 +1,13 @@
 # Kiner
 
-Python AWS Kinesis Producer. Currently it has the next features:
+Python AWS Kinesis Producer.
+
+### Features
 
 - Error handling and retrying with exponential backoff
 - Automatic batching
+
+Inspired by the AWS blog post [Implementing Efficient and Reliable Producers with the Amazon Kinesis Producer Library](https://aws.amazon.com/blogs/big-data/implementing-efficient-and-reliable-producers-with-the-amazon-kinesis-producer-library/).
 
 ## Installation
 
