@@ -95,9 +95,13 @@ class KinesisProducer:
             retries += 1
             records = failed_records
 
+        # Save faile records to a file
+        if failed_record_count:
+            with open('failed_records.dlq', 'ab') as f:
+                for r in records:
+                    f.write(r.get('Data'))
+
+            logging.warning('{} records failed'.format(failed_record_count))
+
         # Empty the record queue
         self.records = []
-
-        # Handle
-        if failed_record_count:
-            logging.warning('{} records failed'.format(failed_record_count))
