@@ -65,6 +65,11 @@ class KinesisProducer:
         # Append the record
         self.queue.put(record)
 
+    def close(self):
+        """Flushes the queue and waits for the executor to finish."""
+        self.flush_queue()
+        self.pool.shutdown()
+
     def flush_queue(self):
         """Grab all the current records in the queue and send them."""
         records = []
