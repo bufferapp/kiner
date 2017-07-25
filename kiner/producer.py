@@ -1,7 +1,8 @@
 import boto3
 import time
 import uuid
-import logging
+from queue import Queue
+from concurrent.futures import ThreadPoolExecutor
 
 
 class KinesisProducer:
@@ -20,15 +21,18 @@ class KinesisProducer:
     ----------
     records : array
         Queue of formated records.
-    client: boto3.client
+    kinesis_client: boto3.client
         Kinesis client.
+    pool: concurrent.futures.ThreadPoolExecutor
+        Pool of threads handling client I/O.
     """
-    def __init__(self, stream_name, batch_size=500, max_retries=5):
+    def __init__(self, stream_name, batch_size=500, max_retries=5, threads=10):
         self.stream_name = stream_name
-        self.records = []
+        self.queue = Queue()
         self.batch_size = batch_size
         self.max_retries = max_retries
-        self.client = boto3.client('kinesis')
+        self.pool = ThreadPoolExecutor(threads)
+        self.kinesis_client = boto3.client('kinesis')
 
     def put_record(self, data, partition_key=None):
         """Add data to the record queue in the proper format.
@@ -55,53 +59,57 @@ class KinesisProducer:
         }
 
         # Flush the queue if it reaches the batch size
-        if len(self.records) == self.batch_size:
-            self.flush()
+        if self.queue.qsize() >= self.batch_size:
+            self.pool.submit(self.flush_queue)
 
         # Append the record
-        self.records.append(record)
+        self.queue.put(record)
 
-    def flush(self):
-        """Put all the current records in the queue into the stream."""
-        records = self.records
+    def flush_queue(self):
+        """Grab all the current records in the queue and send them."""
+        records = []
 
-        # Return if there are no records
-        if not records:
+        while not self.queue.empty() and len(records) < self.batch_size:
+            records.append(self.queue.get())
+
+        if records:
+            self.send_records(records)
+
+    def send_records(self, records, attempt=0):
+        """Send records to the Kinesis stream.
+
+        Falied records are sent again with an exponential backoff decay.
+
+        Parameters
+        ----------
+        records : array
+            Array of formated records to send.
+        attempt: int
+            Number of times the records have been sent without success.
+        """
+
+        # If we already tried more times than we wanted, save to a file
+        if attempt > self.max_retries:
+            with open('failed_records.dlq', 'ab') as f:
+                for r in records:
+                    f.write(r.get('Data'))
             return
 
-        response = self.client.put_records(StreamName=self.stream_name,
-                                           Records=records)
+        # Sleep before retrying
+        if attempt:
+            time.sleep(2 ** attempt * .1)
+
+        response = self.kinesis_client.put_records(StreamName=self.stream_name,
+                                                   Records=records)
         failed_record_count = response['FailedRecordCount']
-        retries = 1
 
-        # Retry failed records
-        while failed_record_count > 0 and retries <= self.max_retries:
-            logging.info('Retrying {} records'.format(failed_record_count))
-
-            # Sleep before resending
-            time.sleep(2 ** retries * .1)
-
-            # Grab the failed records
+        # Grab failed records
+        if failed_record_count:
             failed_records = []
             for i, record in enumerate(response['Records']):
                 if record.get('ErrorCode'):
                     failed_records.append(records[i])
 
-            response = self.client.put_records(StreamName=self.stream_name,
-                                               Records=failed_records)
-
-            failed_record_count = response['FailedRecordCount']
-
-            retries += 1
-            records = failed_records
-
-        # Save faile records to a file
-        if failed_record_count:
-            with open('failed_records.dlq', 'ab') as f:
-                for r in records:
-                    f.write(r.get('Data'))
-
-            logging.warning('{} records failed'.format(failed_record_count))
-
-        # Empty the record queue
-        self.records = []
+            # Recursive call
+            attempt += 1
+            self.send_records(failed_records, attempt=attempt)

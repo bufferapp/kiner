@@ -6,6 +6,7 @@ Python AWS Kinesis Producer.
 
 - Error handling and retrying with exponential backoff
 - Automatic batching
+- Threaded execution
 
 Inspired by the AWS blog post [Implementing Efficient and Reliable Producers with the Amazon Kinesis Producer Library](https://aws.amazon.com/blogs/big-data/implementing-efficient-and-reliable-producers-with-the-amazon-kinesis-producer-library/).
 
@@ -25,10 +26,10 @@ as stated in the [`boto3` documentation](https://boto3.readthedocs.io/en/latest/
 ```python
 from kiner.producer import KinesisProducer
 
-p = KinesisProducer('stream')
+p = KinesisProducer('stream-name', batch_size=500, max_retries=5, threads=10)
 
 for i in range(10000):
     p.put_record(i)
 
-p.flush()
+p.flush_queue()
 ```
