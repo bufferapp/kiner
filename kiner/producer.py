@@ -5,6 +5,13 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 
+def encode_data(data, encoding='utf_8'):
+    if isinstance(data, bytes):
+        return data
+    else:
+        return str(data).encode(encoding)
+
+
 class KinesisProducer:
     """Basic Kinesis Producer.
 
@@ -46,7 +53,7 @@ class KinesisProducer:
 
         """
         # Byte encode the data
-        data = str(data).encode()
+        data = encode_data(data)
 
         # Create a random partition key if not provided
         if not partition_key:
