@@ -19,7 +19,7 @@ Inspired by the AWS blog post [Implementing Efficient and Reliable Producers wit
 You can use `pip` to install Kiner.
 
 ```bash
-pip install git+https://github.com/bufferapp/kiner
+pip install kiner
 ```
 
 ## Usage
