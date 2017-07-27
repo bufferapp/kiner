@@ -1,5 +1,9 @@
 # Kiner
 
+[![Build Status](https://travis-ci.org/bufferapp/kiner.svg?branch=master)](https://travis-ci.org/bufferapp/kiner)
+[![PyPI version](https://badge.fury.io/py/kiner.svg)](https://badge.fury.io/py/kiner)
+[![License](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
+
 Python AWS Kinesis Producer.
 
 ### Features
