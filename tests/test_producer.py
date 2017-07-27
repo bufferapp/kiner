@@ -22,7 +22,7 @@ def test_encode_data(data):
 
 
 @mock_kinesis
-@pytest.mark.parametrize('n', [1, 101, 1001])
+@pytest.mark.parametrize('n', [1, 100, 1000])
 def test_send_records(producer, client, n):
     client.create_stream(StreamName=producer.stream_name, ShardCount=1)
 
