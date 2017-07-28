@@ -7,7 +7,7 @@ from kiner.producer import KinesisProducer
 
 @pytest.fixture
 def producer():
-    producer = KinesisProducer('test_stream', batch_size=100)
+    producer = KinesisProducer('test_stream', batch_size=50, threads=5)
     return producer
 
 
@@ -22,7 +22,7 @@ def test_encode_data(data):
 
 
 @mock_kinesis
-@pytest.mark.parametrize('n', [1, 100, 200])
+@pytest.mark.parametrize('n', [1, 101, 179, 234, 399])
 def test_send_records(producer, client, n):
     client.create_stream(StreamName=producer.stream_name, ShardCount=1)
 
@@ -40,5 +40,5 @@ def test_send_records(producer, client, n):
         ShardIteratorType='TRIM_HORIZON'
     ).get('ShardIterator')
 
-    records = client.get_records(ShardIterator=shard_iterator)['Records']
+    records = client.get_records(ShardIterator=shard_iterator, Limit=n)['Records']
     assert len(records) == n
