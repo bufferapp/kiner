@@ -47,7 +47,7 @@ def test_send_records(producer, client, n):
 
 
 @mock_kinesis
-@pytest.mark.parametrize('n', [1, 101, 179, 234, 399])
+@pytest.mark.parametrize('n', [49, 141])
 def test_send_records_without_close(producer, client, n):
     client.create_stream(StreamName=producer.stream_name, ShardCount=1)
 
@@ -55,7 +55,7 @@ def test_send_records_without_close(producer, client, n):
     for i in range(n):
         producer.put_record(i)
 
-    time.sleep(2)
+    time.sleep(1.5)
 
     assert producer.queue.empty()
 
