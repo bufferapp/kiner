@@ -1,6 +1,7 @@
 import boto3
 import time
 import uuid
+import threading
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
@@ -44,17 +45,18 @@ class KinesisProducer:
         self.max_retries = max_retries
         self.kinesis_client = boto3.client('kinesis')
         self.pool = ThreadPoolExecutor(threads)
-
-        self.monitor_running = True
         self.last_flush = time.time()
+        self.monitor_running = threading.Event()
+        self.monitor_running.set()
         self.pool.submit(self.monitor)
 
     def monitor(self):
         """Flushes the queue periodically."""
-        while self.monitor_running:
+        while self.monitor_running.is_set():
             if time.time() - self.last_flush > self.batch_time:
                 if not self.queue.empty():
                     self.flush_queue()
+                    time.sleep(self.batch_time)
 
     def put_record(self, data, partition_key=None):
         """Add data to the record queue in the proper format.
@@ -90,7 +92,8 @@ class KinesisProducer:
     def close(self):
         """Flushes the queue and waits for the executor to finish."""
         self.flush_queue()
-        self.monitor_running = False
+        self.monitor_running.clear()
+        # self.monitor_thread.join()
         self.pool.shutdown()
 
     def flush_queue(self):
