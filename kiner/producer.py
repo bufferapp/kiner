@@ -1,6 +1,7 @@
 import boto3
 import time
 import uuid
+import threading
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
@@ -21,6 +22,8 @@ class KinesisProducer:
         Name of the stream to send the records.
     batch_size : int
         Numbers of records to batch before flushing the queue.
+    batch_time : int
+        Maximum of seconds to wait before flushing the queue.
     max_retries: int
         Maximum number of times to retry the put operation.
 
@@ -33,13 +36,27 @@ class KinesisProducer:
     pool: concurrent.futures.ThreadPoolExecutor
         Pool of threads handling client I/O.
     """
-    def __init__(self, stream_name, batch_size=500, max_retries=5, threads=10):
+    def __init__(self, stream_name, batch_size=500,
+                 batch_time=5, max_retries=5,  threads=10):
         self.stream_name = stream_name
         self.queue = Queue()
         self.batch_size = batch_size
+        self.batch_time = batch_time
         self.max_retries = max_retries
-        self.pool = ThreadPoolExecutor(threads)
         self.kinesis_client = boto3.client('kinesis')
+        self.pool = ThreadPoolExecutor(threads)
+        self.last_flush = time.time()
+        self.monitor_running = threading.Event()
+        self.monitor_running.set()
+        self.pool.submit(self.monitor)
+
+    def monitor(self):
+        """Flushes the queue periodically."""
+        while self.monitor_running.is_set():
+            if time.time() - self.last_flush > self.batch_time:
+                if not self.queue.empty():
+                    self.flush_queue()
+                    time.sleep(self.batch_time)
 
     def put_record(self, data, partition_key=None):
         """Add data to the record queue in the proper format.
@@ -75,6 +92,8 @@ class KinesisProducer:
     def close(self):
         """Flushes the queue and waits for the executor to finish."""
         self.flush_queue()
+        self.monitor_running.clear()
+        # self.monitor_thread.join()
         self.pool.shutdown()
 
     def flush_queue(self):
@@ -86,6 +105,7 @@ class KinesisProducer:
 
         if records:
             self.send_records(records)
+            self.last_flush = time.time()
 
     def send_records(self, records, attempt=0):
         """Send records to the Kinesis stream.
