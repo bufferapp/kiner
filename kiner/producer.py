@@ -2,8 +2,11 @@ import boto3
 import time
 import uuid
 import threading
+import logging
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
 
 
 def encode_data(data, encoding='utf_8'):
@@ -55,6 +58,7 @@ class KinesisProducer:
         while self.monitor_running.is_set():
             if time.time() - self.last_flush > self.batch_time:
                 if not self.queue.empty():
+                    logger.info("Flushing the queue (time without flush exceeded)")
                     self.flush_queue()
                     time.sleep(self.batch_time)
 
@@ -84,9 +88,11 @@ class KinesisProducer:
 
         # Flush the queue if it reaches the batch size
         if self.queue.qsize() >= self.batch_size:
+            logger.info("Flushing the queue (batch size reached)")
             self.pool.submit(self.flush_queue)
 
         # Append the record
+        logger.info('Putting record "{}"'.format(record['Data'][:100]))
         self.queue.put(record)
 
     def close(self):
@@ -121,6 +127,7 @@ class KinesisProducer:
 
         # If we already tried more times than we wanted, save to a file
         if attempt > self.max_retries:
+            logger.warning('Writing {} records to file'.format(len(records)))
             with open('failed_records.dlq', 'ab') as f:
                 for r in records:
                     f.write(r.get('Data'))
@@ -136,6 +143,7 @@ class KinesisProducer:
 
         # Grab failed records
         if failed_record_count:
+            logger.warning('Retrying failed records')
             failed_records = []
             for i, record in enumerate(response['Records']):
                 if record.get('ErrorCode'):
