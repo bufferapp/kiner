@@ -93,7 +93,6 @@ class KinesisProducer:
         """Flushes the queue and waits for the executor to finish."""
         self.flush_queue()
         self.monitor_running.clear()
-        # self.monitor_thread.join()
         self.pool.shutdown()
 
     def flush_queue(self):
