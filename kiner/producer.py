@@ -1,10 +1,10 @@
 import boto3
-import time
-import uuid
-import threading
+from concurrent.futures import ThreadPoolExecutor
 import logging
 from queue import Queue
-from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -29,24 +29,25 @@ class KinesisProducer:
         Maximum of seconds to wait before flushing the queue.
     max_retries: int
         Maximum number of times to retry the put operation.
+    kinesis_client: boto3.client
+        Kinesis client.
 
     Attributes
     ----------
     records : array
         Queue of formated records.
-    kinesis_client: boto3.client
-        Kinesis client.
     pool: concurrent.futures.ThreadPoolExecutor
         Pool of threads handling client I/O.
     """
     def __init__(self, stream_name, batch_size=500,
-                 batch_time=5, max_retries=5,  threads=10):
+                 batch_time=5, max_retries=5, threads=10,
+                 kinesis_client=boto3.client('kinesis')):
         self.stream_name = stream_name
         self.queue = Queue()
         self.batch_size = batch_size
         self.batch_time = batch_time
         self.max_retries = max_retries
-        self.kinesis_client = boto3.client('kinesis')
+        self.kinesis_client = kinesis_client
         self.pool = ThreadPoolExecutor(threads)
         self.last_flush = time.time()
         self.monitor_running = threading.Event()
