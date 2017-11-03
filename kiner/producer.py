@@ -59,7 +59,7 @@ class KinesisProducer:
         while self.monitor_running.is_set():
             if time.time() - self.last_flush > self.batch_time:
                 if not self.queue.empty():
-                    logger.info("Flushing the queue (time without flush exceeded)")
+                    logger.info("Queue Flush: time without flush exceeded")
                     self.flush_queue()
                     time.sleep(self.batch_time)
 
@@ -77,7 +77,6 @@ class KinesisProducer:
         """
         for record in records:
             self.put_record(record, partition_key)
-
 
     def put_record(self, data, partition_key=None):
         """Add data to the record queue in the proper format.
@@ -105,7 +104,7 @@ class KinesisProducer:
 
         # Flush the queue if it reaches the batch size
         if self.queue.qsize() >= self.batch_size:
-            logger.info("Flushing the queue (batch size reached)")
+            logger.info("Queue Flush: batch size reached")
             self.pool.submit(self.flush_queue)
 
         # Append the record
