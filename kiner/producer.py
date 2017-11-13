@@ -5,6 +5,7 @@ from queue import Queue
 import threading
 import time
 import uuid
+import atexit
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class KinesisProducer:
     pool: concurrent.futures.ThreadPoolExecutor
         Pool of threads handling client I/O.
     """
+
     def __init__(self, stream_name, batch_size=500,
                  batch_time=5, max_retries=5, threads=10,
                  kinesis_client=boto3.client('kinesis')):
@@ -53,6 +55,8 @@ class KinesisProducer:
         self.monitor_running = threading.Event()
         self.monitor_running.set()
         self.pool.submit(self.monitor)
+
+        atexit.register(self.close)
 
     def monitor(self):
         """Flushes the queue periodically."""
@@ -113,9 +117,11 @@ class KinesisProducer:
 
     def close(self):
         """Flushes the queue and waits for the executor to finish."""
+        logger.info('Closing producer')
         self.flush_queue()
         self.monitor_running.clear()
         self.pool.shutdown()
+        logger.info('Producer closed')
 
     def flush_queue(self):
         """Grab all the current records in the queue and send them."""
