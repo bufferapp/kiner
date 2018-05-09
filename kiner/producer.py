@@ -65,7 +65,7 @@ class KinesisProducer:
                 if not self.queue.empty():
                     logger.info("Queue Flush: time without flush exceeded")
                     self.flush_queue()
-                    time.sleep(self.batch_time)
+            time.sleep(self.batch_time)
 
     def put_records(self, records, partition_key=None):
         """Add a list of data records to the record queue in the proper format.
