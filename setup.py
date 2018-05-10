@@ -5,7 +5,7 @@ from setuptools import setup
 setup(
     name='kiner',
     packages=['kiner'],
-    version='0.5.1',
+    version='0.6.0',
     description='Python AWS Kinesis Producer',
     author='David Gasquez',
     license='MIT',
