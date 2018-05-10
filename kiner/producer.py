@@ -112,7 +112,6 @@ class KinesisProducer:
             self.pool.submit(self.flush_queue)
 
         # Append the record
-        logger.info('Putting record "{}"'.format(record['Data'][:100]))
         self.queue.put(record)
 
     def close(self):
