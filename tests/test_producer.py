@@ -9,7 +9,7 @@ from kiner.producer import KinesisProducer
 @pytest.fixture
 def producer():
     producer = KinesisProducer('test_stream', batch_size=50,
-                               batch_time=1, threads=5)
+                               batch_time=1, threads=3)
     return producer
 
 
