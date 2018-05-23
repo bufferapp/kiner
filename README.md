@@ -1,10 +1,17 @@
-# Kiner
+<p align="center">
+    <img width=35% src="https://user-images.githubusercontent.com/1682202/40414884-c84a4248-5e79-11e8-9df4-e7d1da89ed92.png">
+</p>
+
+<p align="center">
+    <i>A simple Python AWS Kinesis Producer.</i>
+</p>
+
+&nbsp;&nbsp;&nbsp;&nbsp; 
 
 [![Build Status](https://travis-ci.org/bufferapp/kiner.svg?branch=master)](https://travis-ci.org/bufferapp/kiner)
 [![PyPI version](https://badge.fury.io/py/kiner.svg)](https://badge.fury.io/py/kiner)
 [![License](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
-Python AWS Kinesis Producer.
 
 ### Features
 
@@ -37,3 +44,7 @@ for i in range(10000):
 
 p.close()
 ```
+
+## Contributions
+
+- Logo design by [@area55git](https://github.com/area55git)
