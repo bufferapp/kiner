@@ -43,12 +43,14 @@ class KinesisProducer:
 
     def __init__(self, stream_name, batch_size=500,
                  batch_time=5, max_retries=5, threads=10,
-                 kinesis_client=boto3.client('kinesis')):
+                 kinesis_client=None):
         self.stream_name = stream_name
         self.queue = Queue()
         self.batch_size = batch_size
         self.batch_time = batch_time
         self.max_retries = max_retries
+        if kinesis_client is None:
+            kinesis_client = boto3.client('kinesis')
         self.kinesis_client = kinesis_client
         self.pool = ThreadPoolExecutor(threads)
         self.last_flush = time.time()
