@@ -12,5 +12,5 @@ setup(
     author_email='davidgasquez@buffer.com',
     url='https://github.com/bufferapp/kiner',
     keywords=['kinesis', 'producer', 'aws'],
-    install_requires=['boto3']
+    install_requires=['boto3', 'future']
 )
