@@ -9,7 +9,7 @@ name = "pypi"
 [dev-packages]
 "moto" = "*"
 "pytest" = "*"
-"kiner" = {path = ".", editable = true}
+"kiner" = {editable = true, path = "."}
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
