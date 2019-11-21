@@ -32,6 +32,10 @@ class KinesisProducer:
         Maximum number of times to retry the put operation.
     kinesis_client: boto3.client
         Kinesis client.
+    flush_callback: [int, float, Data=bytes, PartitionKey=str, Metadata=Any] -> None
+        An optional callback to be invoked upon flushing to kinesis,
+        called with the number of records flushed, time.time() when flush occurred
+        and kwargs of the last record flushed
 
     Attributes
     ----------
@@ -43,7 +47,7 @@ class KinesisProducer:
 
     def __init__(self, stream_name, batch_size=500,
                  batch_time=5, max_retries=5, threads=10,
-                 kinesis_client=None):
+                 kinesis_client=None, flush_callback=None):
         self.stream_name = stream_name
         self.queue = Queue()
         self.batch_size = batch_size
@@ -52,6 +56,7 @@ class KinesisProducer:
         if kinesis_client is None:
             kinesis_client = boto3.client('kinesis')
         self.kinesis_client = kinesis_client
+        self.flush_callback = flush_callback
         self.pool = ThreadPoolExecutor(threads)
         self.last_flush = time.time()
         self.monitor_running = threading.Event()
@@ -84,7 +89,7 @@ class KinesisProducer:
         for record in records:
             self.put_record(record, partition_key)
 
-    def put_record(self, data, partition_key=None):
+    def put_record(self, data, metadata=None, partition_key=None):
         """Add data to the record queue in the proper format.
 
         Parameters
@@ -105,7 +110,8 @@ class KinesisProducer:
         # Build the record
         record = {
             'Data': data,
-            'PartitionKey': partition_key
+            'PartitionKey': partition_key,
+            'Metadata': metadata
         }
 
         # Flush the queue if it reaches the batch size
@@ -130,11 +136,16 @@ class KinesisProducer:
         records = []
 
         while not self.queue.empty() and len(records) < self.batch_size:
-            records.append(self.queue.get())
+            record = self.queue.get()
+            # Pop metadata from the queued record for notifying the callback
+            last_metadata = record.pop('Metadata')
+            records.append(record)
 
         if records:
             self.send_records(records)
             self.last_flush = time.time()
+            if self.flush_callback:
+                self.flush_callback(len(records), self.last_flush, Metadata=last_metadata, **records[-1])
 
     def send_records(self, records, attempt=0):
         """Send records to the Kinesis stream.
