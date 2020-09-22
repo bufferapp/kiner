@@ -2,6 +2,7 @@ import boto3
 from concurrent.futures import ThreadPoolExecutor
 import logging
 from queue import Queue
+import sys
 import threading
 import time
 import uuid
@@ -46,11 +47,14 @@ class KinesisProducer:
     """
 
     def __init__(self, stream_name, batch_size=500,
+                 batch_size_bytes=1024,
                  batch_time=5, max_retries=5, threads=10,
                  kinesis_client=None, flush_callback=None):
         self.stream_name = stream_name
         self.queue = Queue()
+        self.queue_size_bytes = 0  # size of queue content
         self.batch_size = batch_size
+        self.batch_size_bytes = batch_size_bytes
         self.batch_time = batch_time
         self.max_retries = max_retries
         if kinesis_client is None:
@@ -113,15 +117,18 @@ class KinesisProducer:
             'PartitionKey': partition_key,
             'Metadata': metadata
         }
+        record_bytes = sys.getsizeof(record) / 1048576 # 1048576=1024**2
 
         # Flush the queue if it reaches the batch size
-        if self.queue.qsize() >= self.batch_size:
+        if self.queue.qsize() >= self.batch_size or self.queue_size_bytes >= self.batch_size_bytes:
             logger.info("Queue Flush: batch size reached")
             self.pool.submit(self.flush_queue)
 
         # Append the record
         logger.debug('Putting record "{}"'.format(record['Data'][:100]))
         self.queue.put(record)
+        self.queue_size_bytes += record_bytes
+
 
     def close(self):
         """Flushes the queue and waits for the executor to finish."""
@@ -134,9 +141,18 @@ class KinesisProducer:
     def flush_queue(self):
         """Grab all the current records in the queue and send them."""
         records = []
+        records_size_bytes = 0
 
-        while not self.queue.empty() and len(records) < self.batch_size:
+        while \
+            not self.queue.empty() and \
+                len(records) < self.batch_size and \
+                records_size_bytes < self.batch_size_bytes:
             record = self.queue.get()
+
+            record_size = sys.getsizeof(record)
+            records_size_bytes += record_size
+            self.queue_size_bytes -= record_size
+
             # Pop metadata from the queued record for notifying the callback
             last_metadata = record.pop('Metadata')
             records.append(record)
