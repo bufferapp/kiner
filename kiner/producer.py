@@ -98,8 +98,10 @@ class KinesisProducer:
 
         Parameters
         ----------
-        data : str
+        data : str|bytes
             Data to send.
+        metadata: dict
+            Metadata associated with the record.
         partition_key: str
             Hash that determines which shard a given data record belongs to.
 
