@@ -17,6 +17,23 @@ def encode_data(data, encoding='utf_8'):
     else:
         return str(data).encode(encoding)
 
+def get_size_in_bytes(obj, seen=None):
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size_in_bytes(v, seen) for v in obj.values()])
+        size += sum([get_size_in_bytes(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size_in_bytes(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size_in_bytes(i, seen) for i in obj])
+    return size
 
 class KinesisProducer:
     """Basic Kinesis Producer.
@@ -27,6 +44,9 @@ class KinesisProducer:
         Name of the stream to send the records.
     batch_size : int
         Numbers of records to batch before flushing the queue.
+    batch_size_mebibytes: float
+        1.024MiB == 1048576 byte
+        1 Mebibyte (MiB) = (1024)^2 bytes = 1048576 bytes.
     batch_time : int
         Maximum of seconds to wait before flushing the queue.
     max_retries: int
@@ -37,7 +57,7 @@ class KinesisProducer:
         An optional callback to be invoked upon flushing to kinesis,
         called with the number of records flushed, time.time() when flush occurred
         and kwargs of the last record flushed
-
+  
     Attributes
     ----------
     records : array
@@ -47,14 +67,14 @@ class KinesisProducer:
     """
 
     def __init__(self, stream_name, batch_size=500,
-                 batch_size_bytes=1024,
+                 batch_size_mebibytes=1.024, 
                  batch_time=5, max_retries=5, threads=10,
                  kinesis_client=None, flush_callback=None):
         self.stream_name = stream_name
         self.queue = Queue()
-        self.queue_size_bytes = 0  # size of queue content
+        self.queue_size_mebibytes = 0  # size of queue content
         self.batch_size = batch_size
-        self.batch_size_bytes = batch_size_bytes
+        self.batch_size_mebibytes = batch_size_mebibytes
         self.batch_time = batch_time
         self.max_retries = max_retries
         if kinesis_client is None:
@@ -119,17 +139,17 @@ class KinesisProducer:
             'PartitionKey': partition_key,
             'Metadata': metadata
         }
-        record_bytes = sys.getsizeof(record) / 1048576 # 1048576=1024**2
+        record_bytes = get_size_in_bytes(record) / 1048576 # 1048576=1024**2
 
         # Flush the queue if it reaches the batch size
-        if self.queue.qsize() >= self.batch_size or self.queue_size_bytes >= self.batch_size_bytes:
+        if self.queue.qsize() >= self.batch_size or self.queue_size_mebibytes >= self.batch_size_mebibytes:
             logger.info("Queue Flush: batch size reached")
             self.pool.submit(self.flush_queue)
 
         # Append the record
         logger.debug('Putting record "{}"'.format(record['Data'][:100]))
         self.queue.put(record)
-        self.queue_size_bytes += record_bytes
+        self.queue_size_mebibytes += record_bytes
 
 
     def close(self):
@@ -143,17 +163,17 @@ class KinesisProducer:
     def flush_queue(self):
         """Grab all the current records in the queue and send them."""
         records = []
-        records_size_bytes = 0
+        records_size_mebibytes = 0
 
         while \
             not self.queue.empty() and \
                 len(records) < self.batch_size and \
-                records_size_bytes < self.batch_size_bytes:
+                records_size_mebibytes < self.batch_size_mebibytes:
             record = self.queue.get()
 
-            record_size = sys.getsizeof(record)
-            records_size_bytes += record_size
-            self.queue_size_bytes -= record_size
+            record_size = get_size_in_bytes(record) / 1048576 # 1048576=1024**2
+            records_size_mebibytes += record_size
+            self.queue_size_mebibytes -= record_size
 
             # Pop metadata from the queued record for notifying the callback
             last_metadata = record.pop('Metadata')
