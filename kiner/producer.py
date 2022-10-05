@@ -151,7 +151,7 @@ class KinesisProducer:
                 records_size_bytes < self.batch_size_bytes:
             record = self.queue.get()
 
-            record_size = sys.getsizeof(record)
+            record_size = sys.getsizeof(record) / 1048576 # 1048576=1024**2
             records_size_bytes += record_size
             self.queue_size_bytes -= record_size
 
