@@ -17,6 +17,23 @@ def encode_data(data, encoding='utf_8'):
     else:
         return str(data).encode(encoding)
 
+def get_size_in_bytes(obj, seen=None):
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size_in_bytes(v, seen) for v in obj.values()])
+        size += sum([get_size_in_bytes(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size_in_bytes(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size_in_bytes(i, seen) for i in obj])
+    return size
 
 class KinesisProducer:
     """Basic Kinesis Producer.
@@ -119,7 +136,7 @@ class KinesisProducer:
             'PartitionKey': partition_key,
             'Metadata': metadata
         }
-        record_bytes = sys.getsizeof(record) / 1048576 # 1048576=1024**2
+        record_bytes = get_size_in_bytes(record) / 1048576 # 1048576=1024**2
 
         # Flush the queue if it reaches the batch size
         if self.queue.qsize() >= self.batch_size or self.queue_size_bytes >= self.batch_size_bytes:
@@ -151,7 +168,7 @@ class KinesisProducer:
                 records_size_bytes < self.batch_size_bytes:
             record = self.queue.get()
 
-            record_size = sys.getsizeof(record) / 1048576 # 1048576=1024**2
+            record_size = get_size_in_bytes(record) / 1048576 # 1048576=1024**2
             records_size_bytes += record_size
             self.queue_size_bytes -= record_size
 
